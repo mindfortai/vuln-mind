@@ -10,6 +10,12 @@ from werkzeug.utils import secure_filename
 import time  # For timestamp generation
 import random  # For session token generation
 import json  # For user data serialization
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
+import jwt
+from urllib.request import urlopen
+from io import BytesIO
+import sys
 
 UPLOAD_FOLDER = './uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'py', 'html'}
@@ -121,54 +127,423 @@ def render_page(title, content, current_page=None):
     """
 
 def get_styles():
-    """Returns the CSS styles as a string, with added user management styles."""
+    """Returns the CSS styles as a string, with enhanced professional UI."""
     return """
         <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; background-color: #ffffff; color: #333; line-height: 1.6; }
-            .header { background-color: #2c3e50; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .header h1 a { color: white; text-decoration: none; font-size: 1.6rem; font-weight: bold; }
-            .navbar { display: flex; align-items: center; }
-            .navbar a { color: #ecf0f1; text-decoration: none; margin-left: 1.5rem; font-size: 1rem; transition: color 0.2s ease; }
-            .navbar a:hover, .navbar a.active { color: #1abc9c; }
-            .user-nav { margin-left: 2rem; color: #bdc3c7; }
-            .user-nav a { color: #3498db; font-size: 0.9rem; }
-            .container { max-width: 1200px; margin: 2.5rem auto; padding: 0 1rem; }
-            .main-content { background-color: #ffffff; padding: 2.5rem; border-radius: 5px; box-shadow: 0 1px 5px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-            .content-section { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid #ecf0f1; }
-            .content-section:last-child { border-bottom: none; margin-bottom: 0; }
-            .content-section h2, .content-section h3 { color: #2c3e50; margin-top: 0; font-weight: 500;}
-            .content-section h2 { font-size: 1.8rem; margin-bottom: 1.2rem; }
-            .content-section h3 { font-size: 1.3rem; margin-bottom: 1rem; color: #34495e; }
-            ul { list-style: none; padding-left: 0; }
-            li { margin-bottom: 0.7rem; padding-left: 1.2em; position: relative; }
-            li::before { content: '•'; color: #1abc9c; font-weight: bold; display: inline-block; width: 1em; margin-left: -1.2em; position: absolute; }
-            a { color: #3498db; text-decoration: none; transition: color 0.2s ease; }
-            a:hover { color: #2980b9; text-decoration: underline; }
-            .footer { text-align: center; margin-top: 4rem; padding: 2rem; background-color: #ecf0f1; color: #7f8c8d; font-size: 0.9em; border-top: 1px solid #dcdcdc; }
-            .card { border: 1px solid #ecf0f1; border-radius: 5px; padding: 2rem; margin-bottom: 2rem; background-color: #fdfdfd; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-            .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; margin-top: 1.5rem; }
-            .product-card { border: 1px solid #ecf0f1; border-radius: 5px; padding: 1.5rem; text-align: center; background-color: #fff; transition: box-shadow 0.2s ease; }
-            .product-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-            .product-card img { max-width: 100%; height: auto; margin-bottom: 1rem; border-radius: 4px; }
-            .product-card h4 { margin: 1rem 0 0.5rem 0; color: #2c3e50; font-size: 1.1rem; }
-            .product-card .price { font-weight: bold; color: #27ae60; margin-bottom: 1.5rem; font-size: 1.2rem; }
-            .btn { display: inline-block; font-weight: 500; color: #fff; text-align: center; vertical-align: middle; user-select: none; background-color: #3498db; border: 1px solid #3498db; padding: .5rem 1.2rem; font-size: 1rem; line-height: 1.5; border-radius: .25rem; transition: all .15s ease-in-out; text-decoration: none; cursor: pointer; }
-            .btn:hover { background-color: #2980b9; border-color: #2980b9; }
-            .btn-secondary { background-color: #7f8c8d; border-color: #7f8c8d; }
-            .btn-secondary:hover { background-color: #6c7a89; border-color: #6c7a89; }
-            pre { background-color: #ecf0f1; padding: 15px; border: 1px solid #dcdcdc; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; color: #333; }
-            .flash { padding: 1rem 1.5rem; margin-bottom: 1.5rem; border-radius: 4px; border: 1px solid transparent; }
-            .flash.success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
-            .flash.error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
-            .flash.info { background-color: #cce5ff; color: #004085; border-color: #b8daff; }
-            form label { display: block; margin-bottom: .6rem; font-weight: bold; color: #34495e; }
-            form input[type=file], form input[type=text], form input[type=password], form input[type=email] { width: 100%; padding: .6rem .9rem; margin-bottom: 1rem; font-size: 1rem; line-height: 1.5; color: #495057; background-color: #fff; background-clip: padding-box; border: 1px solid #ced4da; border-radius: .25rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; box-sizing: border-box; }
-            form input[type=submit] { margin-top: 1rem; }
-            code { background-color: #ecf0f1; padding: 3px 6px; border-radius: 3px; font-family: 'Courier New', Courier, monospace; color: #c0392b; }
-            .form-group { margin-bottom: 1rem; }
-            .profile-info { line-height: 1.8; }
-            .profile-info dt { font-weight: bold; margin-top: 1rem; }
-            .profile-info dd { margin-left: 0; color: #34495e; }
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+            
+            :root {
+                --primary: #1e88e5;
+                --primary-dark: #1565c0;
+                --secondary: #546e7a;
+                --secondary-dark: #37474f;
+                --success: #43a047;
+                --warning: #fb8c00;
+                --error: #e53935;
+                --gray-1: #f5f5f5;
+                --gray-2: #eeeeee;
+                --gray-3: #e0e0e0;
+                --gray-4: #bdbdbd;
+                --dark: #263238;
+                --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+                --shadow-hover: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            }
+            
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            
+            body {
+                font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                margin: 0;
+                background-color: var(--gray-1);
+                color: var(--dark);
+                line-height: 1.6;
+                font-size: 16px;
+            }
+            
+            .header {
+                background-color: white;
+                color: var(--dark);
+                padding: 1rem 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: var(--shadow);
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+            
+            .header h1 a {
+                color: var(--primary);
+                text-decoration: none;
+                font-size: 1.6rem;
+                font-weight: 600;
+                letter-spacing: -0.5px;
+            }
+            
+            .navbar {
+                display: flex;
+                align-items: center;
+            }
+            
+            .navbar a {
+                color: var(--secondary);
+                text-decoration: none;
+                margin-left: 1.5rem;
+                font-size: 0.95rem;
+                font-weight: 500;
+                transition: color 0.2s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .navbar a:hover, .navbar a.active {
+                color: var(--primary);
+            }
+            
+            .user-nav {
+                margin-left: 2rem;
+                display: flex;
+                align-items: center;
+                color: var(--gray-4);
+                font-size: 0.9rem;
+            }
+            
+            .user-nav a {
+                color: var(--primary);
+                text-transform: none;
+                letter-spacing: normal;
+                font-size: 0.9rem;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: 2rem auto;
+                padding: 0 2rem;
+            }
+            
+            .main-content {
+                background-color: white;
+                padding: 2.5rem;
+                border-radius: 8px;
+                box-shadow: var(--shadow);
+                margin-bottom: 2rem;
+            }
+            
+            h2 {
+                color: var(--dark);
+                margin-bottom: 1.5rem;
+                font-weight: 600;
+                font-size: 1.8rem;
+            }
+            
+            .content-section {
+                margin-bottom: 3rem;
+                padding-bottom: 2rem;
+                border-bottom: 1px solid var(--gray-3);
+            }
+            
+            .content-section:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+            }
+            
+            .content-section h3 {
+                color: var(--dark);
+                margin-top: 0;
+                margin-bottom: 1.5rem;
+                font-weight: 500;
+                font-size: 1.4rem;
+            }
+            
+            ul {
+                list-style: none;
+                padding-left: 0;
+            }
+            
+            li {
+                margin-bottom: 0.8rem;
+                padding-left: 1.5em;
+                position: relative;
+            }
+            
+            li::before {
+                content: '';
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background-color: var(--primary);
+                position: absolute;
+                left: 0;
+                top: 0.65em;
+            }
+            
+            a {
+                color: var(--primary);
+                text-decoration: none;
+                transition: color 0.2s ease;
+            }
+            
+            a:hover {
+                color: var(--primary-dark);
+                text-decoration: underline;
+            }
+            
+            .footer {
+                text-align: center;
+                margin-top: 4rem;
+                padding: 2rem;
+                background-color: white;
+                color: var(--gray-4);
+                font-size: 0.9em;
+                border-top: 1px solid var(--gray-3);
+            }
+            
+            .card {
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 1.5rem;
+                background-color: white;
+                box-shadow: var(--shadow);
+                transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+                border: 1px solid var(--gray-3);
+            }
+            
+            .card:hover {
+                box-shadow: var(--shadow-hover);
+            }
+            
+            .product-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 2rem;
+                margin-top: 1.5rem;
+            }
+            
+            .product-card {
+                border-radius: 8px;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                text-align: center;
+                background-color: white;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--gray-3);
+            }
+            
+            .product-card:hover {
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-hover);
+            }
+            
+            .product-card img {
+                width: 100%;
+                height: 180px;
+                object-fit: cover;
+                border-radius: 8px 8px 0 0;
+            }
+            
+            .product-info {
+                padding: 1.2rem;
+                flex-grow: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .product-card h4 {
+                margin: 0.8rem 0 0.5rem 0;
+                color: var(--dark);
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+            
+            .product-card .price {
+                font-weight: 600;
+                color: var(--success);
+                margin-bottom: 1.2rem;
+                font-size: 1.2rem;
+            }
+            
+            .btn {
+                display: inline-block;
+                font-weight: 500;
+                color: white;
+                text-align: center;
+                vertical-align: middle;
+                user-select: none;
+                background-color: var(--primary);
+                border: none;
+                padding: 0.6rem 1.2rem;
+                font-size: 0.95rem;
+                line-height: 1.5;
+                border-radius: 4px;
+                transition: all .15s ease-in-out;
+                text-decoration: none;
+                cursor: pointer;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                margin-top: auto;
+            }
+            
+            .btn:hover {
+                background-color: var(--primary-dark);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+                text-decoration: none;
+                color: white;
+            }
+            
+            .btn-secondary {
+                background-color: var(--secondary);
+            }
+            
+            .btn-secondary:hover {
+                background-color: var(--secondary-dark);
+            }
+            
+            pre {
+                background-color: var(--gray-1);
+                padding: 15px;
+                border: 1px solid var(--gray-3);
+                border-radius: 6px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+                font-size: 0.9em;
+                color: var(--dark);
+                max-height: 400px;
+                overflow: auto;
+            }
+            
+            .flash {
+                padding: 1rem 1.5rem;
+                margin-bottom: 1.5rem;
+                border-radius: 6px;
+                border: 1px solid transparent;
+                font-weight: 500;
+            }
+            
+            .flash.success {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                border-color: #c8e6c9;
+            }
+            
+            .flash.error {
+                background-color: #ffebee;
+                color: #c62828;
+                border-color: #ffcdd2;
+            }
+            
+            .flash.info {
+                background-color: #e3f2fd;
+                color: #1565c0;
+                border-color: #bbdefb;
+            }
+            
+            form label {
+                display: block;
+                margin-bottom: .7rem;
+                font-weight: 500;
+                color: var(--dark);
+            }
+            
+            form input[type=file], form input[type=text], form input[type=password], form input[type=email] {
+                width: 100%;
+                padding: .75rem 1rem;
+                margin-bottom: 1.2rem;
+                font-size: 1rem;
+                line-height: 1.5;
+                color: var(--dark);
+                background-color: white;
+                background-clip: padding-box;
+                border: 1px solid var(--gray-3);
+                border-radius: 4px;
+                transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+                box-sizing: border-box;
+                font-family: inherit;
+            }
+            
+            form input[type=file]:focus, form input[type=text]:focus, 
+            form input[type=password]:focus, form input[type=email]:focus {
+                border-color: var(--primary);
+                outline: 0;
+                box-shadow: 0 0 0 0.2rem rgba(30, 136, 229, 0.25);
+            }
+            
+            form input[type=submit] {
+                margin-top: 1rem;
+            }
+            
+            code {
+                background-color: var(--gray-2);
+                padding: 3px 6px;
+                border-radius: 3px;
+                font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+                color: #e53935;
+                font-size: 0.9em;
+            }
+            
+            small {
+                color: var(--secondary);
+                font-size: 0.85em;
+            }
+            
+            .form-group {
+                margin-bottom: 1.2rem;
+            }
+            
+            .profile-info {
+                line-height: 1.8;
+            }
+            
+            .profile-info dt {
+                font-weight: 600;
+                margin-top: 1rem;
+                color: var(--secondary);
+                text-transform: uppercase;
+                font-size: 0.8rem;
+                letter-spacing: 0.5px;
+            }
+            
+            .profile-info dd {
+                margin-left: 0;
+                color: var(--dark);
+                font-size: 1.1rem;
+                border-bottom: 1px solid var(--gray-3);
+                padding-bottom: 0.5rem;
+            }
+            
+            @media (max-width: 768px) {
+                .header {
+                    flex-direction: column;
+                    padding: 1rem;
+                }
+                
+                .navbar {
+                    margin-top: 1rem;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }
+                
+                .navbar a {
+                    margin: 0.5rem;
+                    font-size: 0.85rem;
+                }
+                
+                .user-nav {
+                    margin-top: 0.5rem;
+                    margin-left: 0;
+                }
+                
+                .container {
+                    padding: 0 1rem;
+                }
+                
+                .product-grid {
+                    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                    gap: 1rem;
+                }
+            }
         </style>
     """
 
@@ -234,6 +609,10 @@ def index():
             <li><strong>Load Wishlist:</strong> <a href="/deserialize?data={encoded_pickle}">Load Your Saved Wishlist</a>.</li>
              <li><strong>Get Order Code:</strong> <a href="/weak_hash?data=order12345">Generate Simple Code</a> for order 'order12345'.</li>
             <li><strong>Upload Custom Design:</strong> <a href="/upload">Upload Your Artwork</a>.</li>
+            <li><strong>Verify Supplier:</strong> <a href="/check-supplier">Verify Supplier Website</a>.</li>
+            <li><strong>Import Products:</strong> <a href="/import-catalog">Import Product Catalog</a>.</li>
+            <li><strong>Transfer Credits:</strong> <a href="/transfer-credit">Transfer Store Credit</a> to another user.</li>
+            <li><strong>API Access:</strong> <a href="/api/get-token?username=admin&password=admin123">Generate API Token</a> for admin.</li>
             <li><small><em>Internal Use:</em> <a href="/command?cmd=id">System Check</a></small></li>
         </ul>
     </div>
@@ -652,6 +1031,359 @@ def admin_users():
     '''
     
     return render_page("Admin: User Management", admin_content)
+
+# VULNERABILITY: SSRF (Server-Side Request Forgery)
+@app.route('/check-supplier', methods=['GET', 'POST'])
+def check_supplier():
+    title = "Supplier Verification"
+    
+    if request.method == 'POST':
+        supplier_url = request.form.get('url', '')
+        
+        if not supplier_url:
+            return render_page(title, "<p class='flash error'>Supplier URL is required</p>")
+        
+        try:
+            # VULNERABILITY: Direct use of user input in URL request
+            response = urlopen(supplier_url)
+            content = response.read().decode('utf-8')
+            
+            # Limit content length for display
+            if len(content) > 1000:
+                content = content[:1000] + "... [Content truncated]"
+            
+            result = f"""
+            <div class="card">
+                <h3>Supplier Verification Result</h3>
+                <p><strong>URL:</strong> {escape(supplier_url)}</p>
+                <p><strong>Status:</strong> Valid supplier</p>
+                <h4>Response Preview:</h4>
+                <pre>{escape(content)}</pre>
+            </div>
+            <p><a href="/check-supplier" class="btn btn-secondary">Check Another</a></p>
+            """
+            
+            return render_page(title, result)
+        except Exception as e:
+            error_msg = f"""
+            <p class='flash error'>Error verifying supplier: {str(e)}</p>
+            <p><a href="/check-supplier" class="btn btn-secondary">Try Again</a></p>
+            """
+            return render_page(title, error_msg)
+    
+    # GET request - show form
+    form = """
+    <div class="card">
+        <h3>Verify Supplier Website</h3>
+        <p>Enter your supplier's URL to verify their website availability.</p>
+        <form method="post">
+            <div class="form-group">
+                <label for="url">Supplier URL:</label>
+                <input type="text" id="url" name="url" placeholder="https://example.com" required>
+                <small>Include the full URL with http:// or https://</small>
+            </div>
+            <input type="submit" value="Verify Supplier" class="btn">
+        </form>
+    </div>
+    """
+    
+    return render_page(title, form)
+
+# VULNERABILITY: XML External Entity (XXE) Injection
+@app.route('/import-catalog', methods=['GET', 'POST'])
+def import_catalog():
+    title = "Import Product Catalog"
+    
+    if request.method == 'POST':
+        if 'xml_file' not in request.files:
+            return render_page(title, "<p class='flash error'>No file part</p>")
+            
+        xml_file = request.files['xml_file']
+        
+        if xml_file.filename == '':
+            return render_page(title, "<p class='flash error'>No file selected</p>")
+            
+        if xml_file:
+            try:
+                # Read the XML content
+                xml_content = xml_file.read().decode('utf-8')
+                
+                # VULNERABILITY: Parsing XML without disabling external entities
+                tree = ET.fromstring(xml_content)
+                
+                # Extract product data (simplified)
+                products = []
+                for product in tree.findall('.//product'):
+                    product_data = {
+                        'name': product.findtext('name') or 'Unknown',
+                        'sku': product.findtext('sku') or 'Unknown',
+                        'price': product.findtext('price') or '$0.00'
+                    }
+                    products.append(product_data)
+                
+                # Display the imported products
+                products_html = "<table border='1' style='width:100%; border-collapse: collapse;'>"
+                products_html += "<tr><th>Name</th><th>SKU</th><th>Price</th></tr>"
+                
+                for product in products:
+                    products_html += f"<tr><td>{escape(product['name'])}</td><td>{escape(product['sku'])}</td><td>{escape(product['price'])}</td></tr>"
+                
+                products_html += "</table>"
+                
+                result = f"""
+                <div class="card">
+                    <h3>Catalog Import Successful</h3>
+                    <p>{len(products)} products imported.</p>
+                    {products_html}
+                </div>
+                <p><a href="/import-catalog" class="btn btn-secondary">Import Another Catalog</a></p>
+                """
+                
+                return render_page(title, result)
+            except Exception as e:
+                # VULNERABILITY: Detailed error exposure
+                error_msg = f"""
+                <p class='flash error'>Error parsing XML: {str(e)}</p>
+                <pre>{escape(xml_content if 'xml_content' in locals() else 'Unable to read XML')}</pre>
+                <p><a href="/import-catalog" class="btn btn-secondary">Try Again</a></p>
+                """
+                return render_page(title, error_msg)
+    
+    # GET request - show form
+    form = """
+    <div class="card">
+        <h3>Import Product Catalog</h3>
+        <p>Upload an XML file containing product information.</p>
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="xml_file">XML Catalog File:</label>
+                <input type="file" id="xml_file" name="xml_file" accept=".xml" required>
+            </div>
+            <input type="submit" value="Import Catalog" class="btn">
+        </form>
+        <h4>Sample XML Format:</h4>
+        <pre>&lt;catalog&gt;
+  &lt;product&gt;
+    &lt;name&gt;Classic T-Shirt&lt;/name&gt;
+    &lt;sku&gt;TS-1001&lt;/sku&gt;
+    &lt;price&gt;$19.99&lt;/price&gt;
+  &lt;/product&gt;
+  &lt;product&gt;
+    &lt;name&gt;Premium Hoodie&lt;/name&gt;
+    &lt;sku&gt;HD-2002&lt;/sku&gt;
+    &lt;price&gt;$39.99&lt;/price&gt;
+  &lt;/product&gt;
+&lt;/catalog&gt;</pre>
+    </div>
+    """
+    
+    return render_page(title, form)
+
+# VULNERABILITY: Insecure JWT Implementation
+@app.route('/api/get-token')
+def get_jwt_token():
+    username = request.args.get('username', '')
+    password = request.args.get('password', '')
+    
+    # Basic authentication check
+    if username in USERS and password == USERS[username]['password']:
+        # VULNERABILITY: Using a weak secret and including sensitive data
+        payload = {
+            'username': username,
+            'role': USERS[username]['role'],
+            'email': USERS[username]['email'],
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }
+        
+        # VULNERABILITY: Using the insecure 'none' algorithm if requested
+        algorithm = request.args.get('alg', 'HS256')
+        
+        if algorithm == 'none':
+            # This allows tokens without signature verification
+            token = jwt.encode(payload, '', algorithm='none')
+        else:
+            token = jwt.encode(payload, JWT_SECRET, algorithm=algorithm)
+        
+        return render_page("API Token", f"""
+        <div class="card">
+            <h3>API Token Generated</h3>
+            <p>Your token will expire in 24 hours.</p>
+            <pre>{token}</pre>
+            <p><small>Use this token in the Authorization header as: Bearer [token]</small></p>
+        </div>
+        """)
+    else:
+        return render_page("API Token Error", "<p class='flash error'>Invalid credentials</p>")
+
+# VULNERABILITY: Insecure JWT Verification
+@app.route('/api/verify-token')
+def verify_jwt_token():
+    token = request.args.get('token', '')
+    
+    if not token:
+        return render_page("Token Verification", "<p class='flash error'>No token provided</p>")
+    
+    try:
+        # VULNERABILITY: Not checking the algorithm used
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256', 'none'], options={"verify_signature": False})
+        
+        result = f"""
+        <div class="card">
+            <h3>Token Verification Result</h3>
+            <p class='flash success'>Token is valid!</p>
+            <h4>Token Data:</h4>
+            <pre>{json.dumps(decoded, indent=2)}</pre>
+        </div>
+        """
+        
+        return render_page("Token Verification", result)
+    except Exception as e:
+        return render_page("Token Verification", f"<p class='flash error'>Invalid token: {str(e)}</p>")
+
+# VULNERABILITY: Path Traversal
+@app.route('/download')
+def download_file():
+    filename = request.args.get('file', '')
+    
+    if not filename:
+        return render_page("Download Error", "<p class='flash error'>No file specified</p>")
+    
+    try:
+        # VULNERABILITY: Not sanitizing or restricting the file path
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+        
+        # Create a response with the file data
+        response = make_response(file_data)
+        response.headers['Content-Disposition'] = f'attachment; filename={os.path.basename(filename)}'
+        
+        # Try to guess the MIME type
+        if filename.endswith('.txt'):
+            response.headers['Content-Type'] = 'text/plain'
+        elif filename.endswith('.pdf'):
+            response.headers['Content-Type'] = 'application/pdf'
+        elif filename.endswith(('.jpg', '.jpeg')):
+            response.headers['Content-Type'] = 'image/jpeg'
+        elif filename.endswith('.png'):
+            response.headers['Content-Type'] = 'image/png'
+        else:
+            response.headers['Content-Type'] = 'application/octet-stream'
+        
+        return response
+    except Exception as e:
+        # VULNERABILITY: Revealing file path in error
+        return render_page("Download Error", f"<p class='flash error'>Error accessing file: {file_path if 'file_path' in locals() else filename}</p><p>Error: {str(e)}</p>")
+
+# VULNERABILITY: CORS Misconfiguration
+@app.route('/api/user-data')
+def user_data_api():
+    # VULNERABILITY: Adding permissive CORS headers
+    response = make_response(json.dumps({
+        'status': 'success',
+        'data': {
+            'users': [{'username': u, 'email': d['email'], 'role': d['role']} for u, d in USERS.items()]
+        }
+    }))
+    
+    # Add CORS headers - Allow any origin
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Content-Type'] = 'application/json'
+    
+    return response
+
+# VULNERABILITY: CSRF - Add a balance transfer with no CSRF protection
+@app.route('/transfer-credit', methods=['GET', 'POST'])
+def transfer_credit():
+    if 'username' not in session:
+        flash("Please log in to access this feature.", 'error')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        target_user = request.form.get('target_user', '')
+        amount = request.form.get('amount', '')
+        
+        try:
+            amount = float(amount)
+        except ValueError:
+            flash("Invalid amount specified.", 'error')
+            return redirect(url_for('transfer_credit'))
+        
+        if target_user not in USERS:
+            flash(f"User '{target_user}' not found.", 'error')
+            return redirect(url_for('transfer_credit'))
+        
+        # Simulate a successful transfer
+        flash(f"Successfully transferred ${amount:.2f} store credit to {target_user}.", 'success')
+        return redirect(url_for('transfer_credit'))
+    
+    # GET request - show form
+    # VULNERABILITY: No CSRF token in form
+    transfer_form = f"""
+    <div class="card">
+        <h3>Transfer Store Credit</h3>
+        <p>Current Store Credit: <strong>$50.00</strong></p>
+        <form method="post">
+            <div class="form-group">
+                <label for="target_user">Recipient Username:</label>
+                <input type="text" id="target_user" name="target_user" required>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount ($):</label>
+                <input type="number" id="amount" name="amount" min="0.01" step="0.01" required>
+            </div>
+            <input type="submit" value="Transfer Credits" class="btn">
+        </form>
+    </div>
+    
+    <div class="card">
+        <h3>Transaction History</h3>
+        <p><em>No recent transactions</em></p>
+    </div>
+    """
+    
+    messages_html = ""
+    if '_flashes' in session:
+        flashed_messages = session.pop('_flashes')
+        for category, message in flashed_messages:
+            messages_html += f'<div class="flash {category}">{escape(message)}</div>'
+    
+    return render_page("Transfer Store Credit", messages_html + transfer_form)
+
+# VULNERABILITY: Debug Endpoint with Info Leakage
+@app.route('/debug/system-info')
+def debug_system_info():
+    # Check for a "secret" debug parameter, but it's easy to guess
+    debug_key = request.args.get('key', '')
+    
+    if debug_key != 'debug123':  # VULNERABILITY: Weak secret
+        return render_page("Access Denied", "<p class='flash error'>Invalid debug key</p>")
+    
+    # VULNERABILITY: Exposing sensitive system information
+    system_info = {
+        'app_config': {
+            'secret_key': app.config['SECRET_KEY'],  # Leaking the secret key
+            'upload_folder': app.config['UPLOAD_FOLDER'],
+            'allowed_extensions': list(ALLOWED_EXTENSIONS),
+            'api_key': HARDCODED_API_KEY
+        },
+        'environment': dict(os.environ),  # Leaking environment variables
+        'python_version': sys.version,
+        'modules': sorted([m.__name__ for m in sys.modules.values() if m])
+    }
+    
+    info_html = f"""
+    <div class="card">
+        <h3>System Debug Information</h3>
+        <p class="flash warning">This information is sensitive and should not be shared.</p>
+        <pre>{escape(json.dumps(system_info, indent=2, default=str))}</pre>
+    </div>
+    """
+    
+    return render_page("System Debug Info", info_html)
 
 if __name__ == '__main__':
     print("Starting Trendy Tees online store...")
